@@ -17,11 +17,28 @@ A local Ubuntu desktop app for reviewing and importing tasks planned in ChatGPT 
    ```
 
    Run this command only when creating the file for the first time. The environment variable takes precedence over the file. The Git ignore rules exclude `.env`.
-3. Use the [ChatGPT prompt](PROMPT.md) to generate a JSON document. Open it in the bridge and choose a default project for tasks that omit `project`. You can also try the [Kotlin example](examples/kotlin.json).
+3. Generate a JSON document using the prompt below. Open it in the bridge and choose a default project for tasks that omit `project`.
 4. Click **Preview import** and review the proposed changes. Edit the JSON as needed and regenerate the preview.
 5. Export a backup from Super Productivity before your first import. Use **Confirm import** to apply the reviewed changes and check the results.
 
 ## JSON format
+
+```json
+{
+  "schemaVersion": "1.0",
+  "source": "chatgpt",
+  "tasks": [
+    {
+      "externalId": "review-notes",
+      "title": "Review meeting notes"
+    }
+  ]
+}
+```
+
+To generate an import file, ask ChatGPT:
+
+> Turn this plan into a UTF-8 JSON file using the format above. Use short, actionable titles and unique IDs. Keep the IDs stable when revising the same plan. Include optional fields only where needed, use one level of subtasks, and omit credentials. Use project names, tags, and existing task IDs only when I provide them.
 
 Use a UTF-8 JSON object with `schemaVersion: "1.0"`, `source: "chatgpt"`, and a non-empty `tasks` array. The file limit is 2 MB.
 

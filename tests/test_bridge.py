@@ -7,7 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from bridge.api import Api, ApiError, Snapshot
-from bridge.importer import Journal, apply, plan
+from bridge.importer import apply, plan
+from bridge.journal import Journal
 from bridge.model import fields, parse
 
 
@@ -162,7 +163,7 @@ class ImportTests(unittest.TestCase):
 
     def test_legacy_pending_creation_is_still_blocked(self):
         self.store.record("x", None, "pendente")
-        migrated = Journal(Path(self.store.lock_path.parent))
+        migrated = Journal(self.store.lock_path.parent)
         self.addCleanup(migrated.db.close)
         self.assertEqual(migrated.get("x"), (None, "pending"))
         preview = plan(document(self.item), self.api.snapshot(), migrated, "p1")

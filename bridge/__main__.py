@@ -8,7 +8,8 @@ from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from bridge.api import Api, ApiError, configured_token
-from bridge.importer import apply, local_journal, plan
+from bridge.importer import apply, plan
+from bridge.journal import local_journal
 from bridge.model import parse, read_file
 
 
@@ -32,7 +33,6 @@ class Window:
                                    if self.token.get() else "Enter your Super Productivity REST token.")
         self.approved = None
         self.projects = {}
-        self.tags = {}
         self.queue = queue.SimpleQueue()
 
         header = ttk.Frame(root, padding=12)
@@ -127,12 +127,12 @@ class Window:
         def finish(snapshot):
             self.projects = {f"{p['title']}  [{p['id']}]": p["id"]
                              for p in snapshot.projects if not p.get("isArchived")}
-            self.tags = {tag["id"]: tag["title"] for tag in snapshot.tags}
+            tags = {tag["id"]: tag["title"] for tag in snapshot.tags}
             selected = self.project.get()
             self.project["values"] = list(self.projects)
             self.project.set(selected if selected in self.projects else "")
             lines = ["REST API connected", "", "Active projects", *self.projects, "", "Tags"]
-            lines.extend(f"{title}  [{key}]" for key, title in self.tags.items() if key != "TODAY")
+            lines.extend(f"{title}  [{key}]" for key, title in tags.items() if key != "TODAY")
             lines.extend(["", "Active tasks and subtasks"])
             lines.extend(f"{task['title']}  [{task['id']}]" for task in snapshot.tasks)
             lines.extend(["", f"Archived tasks found: {len(snapshot.archived)}"])
