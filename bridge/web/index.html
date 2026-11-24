@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Super Productivity Bridge</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="page-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">⇄</span>
+        <span>Super Productivity Bridge</span>
+      </div>
+      <div class="connection">
+        <span id="connection" role="status">Checking the local connection…</span>
+        <button id="reconnect" type="button" class="quiet">Reconnect</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="intro">
+      <h1>Task workspace</h1>
+      <p>Plan tasks in ChatGPT, then review and apply them in Super Productivity.</p>
+    </div>
+    <div class="workflow-options">
+      <section class="panel export" aria-labelledby="create-heading">
+        <h2 id="create-heading">Create new tasks</h2>
+        <p>Attach the model to your ChatGPT conversation to plan new tasks.</p>
+        <button id="export-model" type="button">Download model</button>
+        <p id="model-status" class="export-status" role="status"></p>
+      </section>
+      <section class="panel export" aria-labelledby="update-heading">
+        <h2 id="update-heading">Update existing tasks</h2>
+        <p>Choose open tasks to share with ChatGPT for review.</p>
+        <button id="load-tasks" type="button" class="quiet">Load open tasks</button>
+        <details id="task-picker" hidden>
+          <summary>Select tasks</summary>
+          <label for="filter-project">Filter by project</label>
+          <select id="filter-project"><option value="">All projects</option></select>
+          <div class="task-picker-toolbar">
+            <button id="select-all-tasks" type="button" class="quiet" disabled>Select all</button>
+            <p id="selection-count" role="status"></p>
+          </div>
+          <div id="tasks"></div>
+          <div class="button-group">
+            <button id="export-tasks" type="button" disabled>Download selected tasks</button>
+            <button id="delete-tasks" type="button" class="quiet" disabled>Preview selected deletions</button>
+          </div>
+        </details>
+        <p id="export-status" class="export-status" role="status"></p>
+      </section>
+    </div>
+    <div class="workspace">
+      <section class="panel" aria-labelledby="source-heading">
+        <h2 id="source-heading">Task proposal</h2>
+        <label for="document">Paste JSON from ChatGPT</label>
+        <textarea id="document" rows="8" spellcheck="false" placeholder='{"schemaVersion": "2.0", …}'></textarea>
+        <label for="file">Or choose a JSON file</label>
+        <input id="file" type="file" accept=".json,application/json">
+        <label for="project">Default project <span class="optional">Optional</span></label>
+        <select id="project"><option value="">Use projects from the proposal</option></select>
+        <div class="form-actions">
+          <button id="preview" type="button" disabled>Preview import</button>
+        </div>
+      </section>
+      <section class="panel review" aria-labelledby="review-heading">
+        <div class="review-header">
+          <h2 id="review-heading">Review changes</h2>
+          <button id="confirm" type="button" disabled>Confirm import</button>
+        </div>
+        <p id="status" role="status" tabindex="-1">Your proposed changes will appear here after you preview the import.</p>
+        <div id="results"></div>
+      </section>
+    </div>
+  </main>
+  <dialog id="confirmation" aria-labelledby="confirm-heading">
+    <h2 id="confirm-heading">Confirm import</h2>
+    <p id="confirmation-summary"></p>
+    <p>Before your first import, export a backup from Super Productivity settings.</p>
+    <form method="dialog">
+      <button value="cancel" class="quiet" autofocus>Cancel</button>
+      <button id="apply-changes" value="apply">Apply changes</button>
+    </form>
+  </dialog>
+</body>
+</html>

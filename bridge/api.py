@@ -19,11 +19,8 @@ def configured_token() -> str:
                 name, separator, value = line.partition("=")
                 if separator and name.strip() == "SP_TOKEN":
                     return value.strip()
-    except FileNotFoundError:
-        pass
     except (OSError, UnicodeError):
-        # The token can still be entered in the GUI.
-        pass
+        return ""
     return ""
 
 
@@ -37,7 +34,7 @@ class Api:
     def __init__(self, token: str):
         self.token = token.strip()
         if not self.token or not self.token.isascii() or not self.token.isprintable():
-            raise ValueError("Enter the REST token from Settings → Misc.")
+            raise ValueError("Set SP_TOKEN in .env using the REST token from Settings → Misc.")
 
     def request(self, method: str, path: str, payload: dict | None = None):
         headers = {"Authorization": "Bearer " + self.token}

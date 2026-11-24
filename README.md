@@ -1,71 +1,69 @@
 # Super Productivity Bridge
 
-A local Ubuntu desktop app for reviewing and importing tasks planned in ChatGPT into Super Productivity. The app talks directly to the desktop application's REST API on loopback and stores import links in SQLite.
+A local web app that applies task proposals from ChatGPT to the Super Productivity desktop app. It uses the desktop app's loopback REST API and stores creation links in SQLite so retries can reuse existing tasks.
 
-## Requirements
+## Setup
 
-- Ubuntu with Python 3.10 or later and Tkinter (`python3-tk` on Ubuntu).
-- The Super Productivity desktop app with its local REST API enabled under **Settings → Misc**. The bridge was verified with the Super Productivity 20.1.0 Snap.
-
-## Get started
-
-1. From the project directory, run `./install-launcher.sh` once. Then open **Super Productivity Bridge** from the Ubuntu application menu. To launch directly, run `python3 -m bridge`.
-2. Paste your Super Productivity REST token into the masked field and click **Connect**. To prefill it on startup, set the `SP_TOKEN` environment variable or create a private `.env` file and paste the token after `SP_TOKEN=`.
+1. Enable the local REST API in Super Productivity under **Settings → Misc**. Keep the desktop app running.
+2. On Ubuntu with Python 3.10 or later, create the token file if it does not already exist.
 
    ```sh
    install -m 600 .env.example .env
    ```
 
-   Run this command only when creating the file for the first time. The environment variable takes precedence over the file. The Git ignore rules exclude `.env`.
-3. Generate a JSON document using the prompt below. Open it in the bridge and choose a default project for tasks that omit `project`.
-4. Click **Preview import** and review the proposed changes. Edit the JSON as needed and regenerate the preview.
-5. Export a backup from Super Productivity before your first import. Use **Confirm import** to apply the reviewed changes and check the results.
+   Paste the Super Productivity REST token after `SP_TOKEN=` in `.env`. An environment variable of the same name takes precedence. The token stays on the local backend.
+3. Run `python3 -m bridge` and open [the local web app](http://127.0.0.1:8765). Use `--port` to choose another port.
 
-## JSON format
+## Work with ChatGPT
+
+- For new tasks, click **Download model** and attach the downloaded JSON in your conversation.
+- To review existing tasks, click **Load open tasks**, select tasks, and click **Download selected tasks**. The export contains the tasks' notes, IDs, and revisions. Attach only the tasks you want to share with your conversation.
+- Ask ChatGPT for a proposal. Paste its JSON into **Task proposal** or select the returned JSON file. Use **Preview import** and **Confirm proposal** to review and apply it.
+- For deletions, ask ChatGPT to include an explicit delete action, or select tasks and click **Preview selected deletions**. The bridge shows affected subtasks and requires a separate deletion confirmation after any creations and updates have succeeded.
+
+> Use the attached Super Productivity Bridge model. Turn the decisions from this conversation into actionable tasks. For the selected existing tasks, improve the titles, fill missing fields, and reschedule overdue work while preserving existing deadlines. Return one JSON block ready to paste into the bridge.
+
+## Proposal format
+
+Use UTF-8 JSON up to 2 MB. A fenced Markdown JSON block also works. The downloadable model uses the current project and tag catalog.
 
 ```json
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "source": "chatgpt",
   "tasks": [
     {
+      "action": "create",
       "externalId": "review-notes",
-      "title": "Review meeting notes"
+      "title": "Review meeting notes",
+      "project": "EXISTING_PROJECT_NAME",
+      "tags": ["EXISTING_TAG_NAME"],
+      "priority": "medium",
+      "subtasks": [
+        {
+          "action": "create",
+          "externalId": "summarize-decisions",
+          "title": "Summarize decisions",
+          "estimatedMinutes": 25
+        }
+      ]
     }
   ]
 }
 ```
 
-To generate an import file, ask ChatGPT:
+- `create` requires a title and a stable, unique `externalId`. Use an existing project name or ID, or select a default project in the bridge.
+- `update` requires `taskId` and `revision` from the latest export. Include only fields to change. Use `subtasks` with nested `create` actions to add children to an existing top-level task. New nested tasks may omit `action` when they include a title and external ID.
+- `delete` takes only `action`, `taskId`, and `revision`. Deleting a parent includes its subtasks. Recurring task deletions are blocked.
+- Optional fields include `description`, `tags`, `estimatedMinutes`, `priority`, `scheduledDate`, and `deadlineDate`. Tag arrays replace the current set. Dates use local `YYYY-MM-DD`. Subtasks inherit their project and cannot have their own tags. The bridge stores `low`, `medium`, or `high` priority in the notes.
+- Rescheduling an existing timed task to another day clears its scheduled time and reminder. The preview shows this change. Super Productivity may plan a task for today when setting a deadline of today. The bridge reports mismatches between requested fields and the saved task.
 
-> Turn this plan into a UTF-8 JSON file using the format above. Use short, actionable titles and unique IDs. Keep the IDs stable when revising the same plan. Include optional fields only where needed, use one level of subtasks, and omit credentials. Use project names, tags, and existing task IDs only when I provide them.
-
-Use a UTF-8 JSON object with `schemaVersion: "1.0"`, `source: "chatgpt"`, and a non-empty `tasks` array. The file limit is 2 MB.
-
-| Field | Format and behavior |
-| --- | --- |
-| `externalId` | Required stable ID, unique across all tasks and subtasks in a document. Start with an ASCII letter or digit. The remaining characters may also include hyphens, periods, and underscores. Maximum 128 characters. |
-| `title` | Required text, stored literally. |
-| `taskId` | Optional ID of an active Super Productivity task to link or update. |
-| `description` | Optional notes. An empty string clears existing notes. |
-| `project` | Active project name or ID. Uses the selected default project when omitted. |
-| `tags` | Optional array of existing tag names or IDs. Replaces the task's tags. An empty array clears them. |
-| `priority` | Optional manual suggestion displayed in the preview. Accepts `low`, `medium`, or `high`. |
-| `estimatedMinutes` | Optional whole number of minutes from 0 to 1,000,000. |
-| `scheduledDate` | Optional local calendar day in `YYYY-MM-DD` format. |
-| `deadlineDate` | Optional deadline in `YYYY-MM-DD` format. |
-| `subtasks` | Optional array of child tasks. Children inherit the parent's project and cannot define `project`, `tags`, or nested `subtasks`. |
-
-An update preserves omitted optional fields except for `project`, which uses the selected default for top-level tasks. Super Productivity can schedule a task for today when its deadline is today. The bridge stops and reports differences if the saved fields differ from the approved changes. Change existing timed schedules in Super Productivity before setting a new calendar day. Recurring task moves are blocked because they would also move other occurrences.
+Version 1.0 imports remain supported. The bridge keeps their existing project default and task-link behavior.
 
 ## Reimports and recovery
 
-Keep the same `externalId` when revising a task. The bridge stores the link to the Super Productivity task ID in `${XDG_STATE_HOME:-~/.local/state}/super-productivity-bridge/imports.sqlite3`. Back up that file to preserve import links. The preview also flags tasks with identical titles in the same project or under the same parent. To link an existing task after checking it, add its `taskId` to the JSON.
-
-An import stops at the first failure and reports earlier changes. Generate a fresh preview to resume. If the response to a creation request is lost, the bridge marks that external ID as pending. Use **Connect** to look up the task and provide its `taskId` before retrying. If you cannot find it, verify in Super Productivity that it was never created before choosing a new `externalId`.
+Reuse creation IDs across retries. The link database is at `${XDG_STATE_HOME:-~/.local/state}/super-productivity-bridge/imports.sqlite3`. If a creation response is lost, verify the task in Super Productivity and use its `taskId` on the pending creation to reconcile it. If a batch stops partway, check the per-task results, remove any finished updates or deletions from the proposal, and re-export affected tasks before retrying.
 
 ## Development
 
-Run the tests with `python3 -m unittest discover -s tests -v`. The tests use a simulated API and cover validation, authentication errors, duplicate detection, reimports, stale previews, and partial failures. The real Snap was checked separately for authenticated reads, task and subtask creation, repeated imports, and updating a task without changing its ID.
-
-The bridge uses the [local REST API](https://super-productivity.com/docs/reference/api/). The tested version exposes project, tag, and task reads, as well as individual task POST and PATCH requests. Priority is absent from its writable fields. Subtasks can be created under a top-level task. Reparenting an existing subtask is outside the API contract.
+Run `python3 -m unittest discover -s tests -v`. The web tests use loopback and a simulated Super Productivity API. See the [Super Productivity REST API documentation](https://super-productivity.com/docs/reference/api/) for desktop behavior.
