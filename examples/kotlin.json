@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "source": "chatgpt",
+  "tasks": [
+    {
+      "externalId": "kotlin-functions-01",
+      "title": "Practice higher-order functions in Kotlin",
+      "description": "Implement examples using map, filter, and fold.",
+      "priority": "high",
+      "subtasks": [
+        {
+          "externalId": "kotlin-functions-01-reading",
+          "title": "Compare the signatures of map, filter, and fold",
+          "estimatedMinutes": 20
+        },
+        {
+          "externalId": "kotlin-functions-01-exercises",
+          "title": "Solve three collection exercises",
+          "estimatedMinutes": 40
+        }
+      ]
+    }
+  ]
+}
