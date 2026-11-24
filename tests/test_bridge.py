@@ -43,6 +43,9 @@ class FakeApi:
         task = next(task for task in self.data.tasks if task["id"] == task_id)
         if method == "PATCH":
             task.update(payload)
+        if method == "DELETE":
+            self.data.tasks = [item for item in self.data.tasks
+                               if item["id"] != task_id and item.get("parentId") != task_id]
         return task.copy()
 
 
@@ -55,6 +58,17 @@ class ValidationTests(unittest.TestCase):
             "title": "Study functions", "notes": "Reading", "dueDay": "2026-11-25",
             "deadlineDay": "2026-11-26", "timeEstimate": 1800000,
         })
+
+    def test_nested_creation_can_omit_action(self):
+        child = {"externalId": "child", "title": "New subtask"}
+        raw = {"schemaVersion": "2.0", "source": "chatgpt", "tasks": [
+            {"action": "update", "taskId": "parent", "revision": "a" * 64, "subtasks": [child]},
+        ]}
+        parsed = parse(json.dumps(raw))
+        self.assertEqual(parsed["tasks"][0]["subtasks"][0]["action"], "create")
+        child["taskId"] = "existing"
+        with self.assertRaisesRegex(ValueError, "Nested tasks must use create"):
+            parse(json.dumps(raw))
 
     def test_invalid_inputs(self):
         for extra in (

@@ -31,33 +31,61 @@ def unique_object(pairs):
 def parse(raw: str) -> dict:
     if len(raw.encode("utf-8")) > MAX_BYTES:
         raise ValueError("The JSON exceeds 2 MB.")
+    raw = raw.strip().removeprefix("\ufeff").strip()
+    fenced = re.fullmatch(r"```(?:json)?[ \t]*\r?\n(.*?)\r?\n```", raw, re.DOTALL | re.IGNORECASE)
+    if fenced:
+        raw = fenced[1]
     try:
         document = json.loads(raw, object_pairs_hook=unique_object)
     except RecursionError:
         raise ValueError("The JSON is nested too deeply.") from None
     if (not isinstance(document, dict) or set(document) != {"schemaVersion", "source", "tasks"}
-            or document["schemaVersion"] != "1.0" or document["source"] != "chatgpt"
-            or not isinstance(document["tasks"], list) or not document["tasks"]):
-        raise ValueError("Use schemaVersion 1.0, source chatgpt, and a non-empty tasks array.")
+            or document["schemaVersion"] not in ("1.0", "2.0") or document["source"] != "chatgpt"
+            or not isinstance(document["tasks"], list)
+            or (not document["tasks"] and document["schemaVersion"] == "1.0")):
+        raise ValueError("Use schemaVersion 1.0 or 2.0, source chatgpt, and a tasks array.")
 
     identifiers = set()
+    modern = document["schemaVersion"] == "2.0"
 
     def validate(item, path, child=False):
-        if not isinstance(item, dict) or item.keys() - FIELDS:
+        allowed = FIELDS | {"action", "revision"} if modern else FIELDS
+        if not isinstance(item, dict) or item.keys() - allowed:
             raise ValueError(f"{path}: invalid task or unknown field.")
+        if modern and child and "action" not in item and {"externalId", "title"} <= item.keys():
+            if not item.keys() & {"taskId", "revision"}:
+                item["action"] = "create"
+        action = item.get("action") if modern else None
+        if modern:
+            if action not in ("create", "update", "delete") or (child and action != "create"):
+                raise ValueError(f"{path}: invalid action. Nested tasks must use create.")
+            if action == "create" and "revision" in item:
+                raise ValueError(f"{path}: creation cannot carry a revision.")
+            if action in ("update", "delete"):
+                if ("externalId" in item or not isinstance(item.get("taskId"), str)
+                        or not item["taskId"].strip() or not isinstance(item.get("revision"), str)
+                        or not re.fullmatch(r"[0-9a-f]{64}", item["revision"])):
+                    raise ValueError(f"{path}: copy taskId and revision from the export.")
+                if action == "delete":
+                    if item.keys() != {"action", "taskId", "revision"}:
+                        raise ValueError(f"{path}: delete accepts only taskId and revision.")
+                    item["taskId"] = item["taskId"].strip()
+                    return
         if child and item.keys() & {"subtasks", "project", "tags"}:
             raise ValueError(f"{path}: subtasks inherit the project and cannot define tags or nested subtasks.")
+        required = {"externalId", "title"} if action != "update" else set()
         for field in ("externalId", "title", "taskId", "project", "description"):
-            if field not in item and field not in {"externalId", "title"}:
+            if field not in item and field not in required:
                 continue
             value = item.get(field)
             if not isinstance(value, str) or (field != "description" and not value.strip()):
                 raise ValueError(f"{path}.{field}: invalid text.")
             item[field] = value if field == "description" else value.strip()
-        external = item["externalId"]
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", external) or external in identifiers:
+        external = item.get("externalId")
+        if external is not None and (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", external) or external in identifiers):
             raise ValueError(f"{path}.externalId: invalid or duplicate ID.")
-        identifiers.add(external)
+        if external is not None:
+            identifiers.add(external)
         if "priority" in item and item["priority"] not in ("low", "medium", "high"):
             raise ValueError(f"{path}.priority: use low, medium, or high.")
         if "estimatedMinutes" in item:
